@@ -1,0 +1,50 @@
+import React, { useState, useEffect } from 'react'
+import axios from 'axios'
+import Countries from './Exercise 2/restCounries/components/Countries'
+import CountryData from './Exercise 2/restCounries/components/CountryData'
+
+const App = () => {
+  const [countries, setCountries] = useState([] as any)
+  const [queryCountry, setQueryCountry] = useState('')
+  const [countriesToShow, setCountriesToShow] = useState([] as any)
+
+  // Fetching Data from API
+  useEffect(() => {
+    axios.get('https://restcountries.com/v3.1/all').then((response) => {
+      setCountries(response.data)
+    })
+  }, [])
+
+  const handleQueryCountry = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const search = e.target.value
+    setQueryCountry(search)
+    setCountriesToShow(
+      countries.filter((country: any) =>
+        country.name.common.toLowerCase().includes(search.toLowerCase())
+      )
+    )
+  }
+
+  return (
+    <div>
+      <div>
+        find countries
+        <input value={queryCountry} onChange={handleQueryCountry} />
+        {/* <Countries countriesToShow={countriesToShow} /> */}
+      </div>
+      {countriesToShow.length === 1 ? (
+        <CountryData queryCountry={countriesToShow[0]} />
+      ) : null}
+      {countriesToShow.length > 10 ? (
+        <div>Too many matches, specify another filter</div>
+      ) : (
+        <Countries
+          countriesToShow={countriesToShow}
+          setCountriesToShow={setCountriesToShow}
+        />
+      )}
+    </div>
+  )
+}
+
+export default App
