@@ -15,10 +15,10 @@ const app = express()
 
 mongoose.set('strictQuery', false)
 
-logger.info('connecting to', config.DB)
+logger.info('connecting to', config.MONGODB_URI)
 
 mongoose
-  .connect(config.DB, {
+  .connect(config.MONGODB_URI, {
     useNewUrlParser: true,
   })
   .then(() => logger.info('DB connection successful'))
@@ -36,9 +36,9 @@ app.use(express.json())
 app.use(middleware.requestLogger)
 
 // Development logging
-if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'))
-}
+// if (process.env.NODE_ENV === 'development') {
+//   app.use(morgan('dev'))
+// }
 
 morgan.token('data', (request) => {
   return request.method === 'POST' ? JSON.stringify(request.body) : ' '
@@ -50,6 +50,11 @@ app.use(
 
 // ROUTES
 app.use('/api/blogs', blogRouter)
+
+if (process.env.NODE_ENV === 'test') {
+  const testingRouter = require('./controllers/testing')
+  app.use('/api/testing', testingRouter)
+}
 
 app.use(middleware.unknownEndpoint)
 app.use(middleware.errorHandler)

@@ -9,7 +9,14 @@ const DB = process.env.DATABASE.replace(
   process.env.DATABASE_PASSWORD
 )
 
+const DB_TEST = process.env.TEST_MONGODB_URI.replace(
+  '<PASSWORD>',
+  process.env.DATABASE_PASSWORD
+)
+
+const MONGODB_URI = process.env.NODE_ENV === 'test' ? DB_TEST : DB
+
 module.exports = {
-  DB,
+  MONGODB_URI,
   port,
 }
