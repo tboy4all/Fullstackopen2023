@@ -1,14 +1,22 @@
 const Blog = require('./../models/blogModel')
+const User = require('./../models/userModel')
 
 exports.createBlog = async (req, res, next) => {
   try {
-    const newBlog = await Blog.create(req.body)
+    let user = req.user.id
+    let { title, url, likes, author } = req.body
+    const newBlog = await Blog.create({ user, author, title, url, likes })
 
-    // res.status(201).json(newBlog)
+    const userBlog = await User.findOne({ _id: user })
+
+    userBlog.blogs.push(newBlog.id)
+    // user.blogs = user.blogs.concat(newBlog.id)
+    await userBlog.save()
+
     res.status(201).json({
       status: 'success',
       data: {
-        tour: newBlog,
+        blog: newBlog,
       },
     })
   } catch (err) {
@@ -21,9 +29,12 @@ exports.createBlog = async (req, res, next) => {
 
 exports.getAllBlogs = async (req, res, next) => {
   try {
-    const blogs = await Blog.find()
+    const blogs = await Blog.find({}).populate('user', {
+      username: 1,
+      name: 1,
+    })
+    // const displayBlogs = blogs.map((blog) => blog.toJSON())
 
-    // res.status(200).json(blogs)
     res.status(200).json({
       status: 'success',
       // requestedAt: req.requestTime,
@@ -54,8 +65,6 @@ exports.getBlog = async (req, res, next) => {
         blog,
       },
     })
-
-    res.status(200).json(blog)
   } catch (err) {
     res.status(400).json({
       status: 'fail',
@@ -84,7 +93,6 @@ exports.updateBlog = async (req, res, next) => {
         blog,
       },
     })
-    res.status(200).json(blog)
   } catch (err) {
     res.status(404).json({
       status: 'fail',

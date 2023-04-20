@@ -9,6 +9,7 @@ const logger = require('./utils/logger')
 const mongoose = require('mongoose')
 
 const blogRouter = require('./routes/blogRoutes')
+const userRouter = require('./routes/userRoutes')
 
 // Start express app
 const app = express()
@@ -50,6 +51,7 @@ app.use(
 
 // ROUTES
 app.use('/api/blogs', blogRouter)
+app.use('/api/users', userRouter)
 
 if (process.env.NODE_ENV === 'test') {
   const testingRouter = require('./controllers/testing')

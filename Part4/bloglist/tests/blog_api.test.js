@@ -1,7 +1,11 @@
 const supertest = require('supertest')
 const mongoose = require('mongoose')
 const helper = require('./test_helper')
+const config = require('../utils/config')
 const app = require('../app')
+const jwt = require('jsonwebtoken')
+const bcrypt = require('bcrypt')
+
 const api = supertest(app)
 
 const Blog = require('../models/blogModel')
@@ -20,13 +24,6 @@ describe('When there is initially some blogs saved', () => {
   })
 
   test('blogs have id property named id instead of _id', async () => {
-    // const response = await api.get('/api/blogs')
-
-    // const ids = response.body.map((blog) => blog.id)
-
-    // for (const id of ids) {
-    //   expect(id).toBeDefined()
-    // }
     const singleBlog = await helper.blogsInDb()
 
     expect(singleBlog[0].id).toBeDefined()
@@ -35,15 +32,15 @@ describe('When there is initially some blogs saved', () => {
 
   describe('addition of a new blog', () => {
     test('a valid blog can be added', async () => {
-      // const loginUser = {
-      //   username: 'test',
-      //   password: 'password',
-      // }
+      const loginUser = {
+        username: 'test',
+        password: 'password',
+      }
 
-      // const loggedUser = await api
-      //   .post('/api/login')
-      //   .send(loginUser)
-      //   .expect('Content-Type', /application\/json/)
+      const loggedUser = await api
+        .post('/api/users/login')
+        .send(loginUser)
+        .expect('Content-Type', /application\/json/)
 
       const newBlog = {
         title: 'Test an app Blog',
@@ -55,7 +52,7 @@ describe('When there is initially some blogs saved', () => {
       await api
         .post('/api/blogs')
         .send(newBlog)
-        //   .set('Authorization', `bearer ${loggedUser.body.token}`)
+        .set('Authorization', `bearer ${loggedUser.body.token}`)
         .expect(201)
         .expect('Content-Type', /application\/json/)
 
@@ -68,6 +65,16 @@ describe('When there is initially some blogs saved', () => {
     })
 
     test('verifies that if the likes property is missing, then default it to 0', async () => {
+      const loginUser = {
+        username: 'test',
+        password: 'password',
+      }
+
+      const loggedUser = await api
+        .post('/api/users/login')
+        .send(loginUser)
+        .expect('Content-Type', /application\/json/)
+
       const newBlog = {
         title: 'Testing default like',
         author: 'Josh Smith',
@@ -76,11 +83,12 @@ describe('When there is initially some blogs saved', () => {
       await api
         .post('/api/blogs')
         .send(newBlog)
+        .set('Authorization', `bearer ${loggedUser.body.token}`)
         .expect(201)
         .expect('Content-Type', /application\/json/)
 
-      // expect(response.body.likes).toBeDefined()
-      // expect(response.body.likes).toBe(0)
+      // expect(res.body.likes).toBeDefined()
+      // expect(res.body.likes).toBe(0)
 
       const blogsAtEnd = await helper.blogsInDb()
       expect(blogsAtEnd).toHaveLength(helper.initialBlogs.length + 1)
@@ -99,14 +107,45 @@ describe('When there is initially some blogs saved', () => {
 
       expect(blogsAtEnd).toHaveLength(helper.initialBlogs.length)
     })
+
+    test('if token is not provided blog is not added', async () => {
+      const newBlog = {
+        title: 'Test an app',
+        author: 'Jhon Doe',
+        url: 'https://fullstackopen.com/',
+      }
+
+      await api
+        .post('/api/blogs')
+        .send(newBlog)
+        .expect(401)
+        .expect('Content-Type', /application\/json/)
+
+      const blogsAtEnd = await helper.blogsInDb()
+
+      expect(blogsAtEnd).toHaveLength(helper.initialBlogs.length)
+    })
   })
 
   describe('deletion of a blog ', () => {
     test('succeeds with status code 204 if id is valid', async () => {
+      const loginUser = {
+        username: 'test',
+        password: 'password',
+      }
+
+      const loggedUser = await api
+        .post('/api/users/login')
+        .send(loginUser)
+        .expect('Content-Type', /application\/json/)
+
       const blogsAtStart = await helper.blogsInDb()
       const blogToDelete = blogsAtStart[0]
 
-      await api.delete(`/api/blogs/${blogToDelete.id}`).expect(204)
+      await api
+        .delete(`/api/blogs/${blogToDelete.id}`)
+        .set('Authorization', `bearer ${loggedUser.body.token}`)
+        .expect(204)
 
       const blogsAtEnd = await helper.blogsInDb()
 
@@ -116,18 +155,55 @@ describe('When there is initially some blogs saved', () => {
 
   describe('updating a blog', () => {
     test('succeeds with status 200 if id is valid', async () => {
-      const blogsAtStart = await helper.blogsInDb()
-      const blogToUpdate = blogsAtStart[0]
+      const loginUser = {
+        username: 'test',
+        password: 'password',
+      }
+
+      const loggedUser = await api
+        .post('/api/users/login')
+        .send(loginUser)
+        .expect('Content-Type', /application\/json/)
+
+      const newBlog = {
+        title: 'Masterpiece',
+        author: 'Edsger W. Dijkstra',
+        url: 'http://www.cs.utexas.edu/~EWD/transcriptions/EWD08xx/EWD808.html',
+        likes: 12,
+      }
 
       await api
+        .post('/api/blogs')
+        .set('Authorization', `bearer ${loggedUser.body.token}`)
+        .send(newBlog)
+        .expect(201)
+
+      const blogsAtStart = await helper.blogsInDb()
+      const blogToUpdate = blogsAtStart.find(
+        (blog) => blog.title === newBlog.title
+      )
+
+      const updatedBlog = {
+        ...blogToUpdate,
+        likes: blogToUpdate.likes + 1,
+      }
+
+      // await api
+      //   .put(`/api/blogs/${blogToUpdate.id}`)
+      //   .send({ likes: 8 })
+      //   .expect(200)
+      await api
         .put(`/api/blogs/${blogToUpdate.id}`)
-        .send({ likes: 8 })
+        .send(updatedBlog)
         .expect(200)
+        .expect('Content-Type', /application\/json/)
 
       const blogsAtEnd = await helper.blogsInDb()
-      const updatedBlog = blogsAtEnd[0]
-      expect(blogsAtEnd).toHaveLength(helper.initialBlogs.length)
-      expect(updatedBlog.likes).toBe(8)
+      // const updatedBlog = blogsAtEnd[0]
+      expect(blogsAtEnd).toHaveLength(helper.initialBlogs.length + 1)
+      // expect(updatedBlog.likes).toBe(8)
+      const foundBlog = blogsAtEnd.find((blog) => blog.likes === 13)
+      expect(foundBlog.likes).toBe(13)
     })
   })
 })
